@@ -4,16 +4,18 @@ import { Map, AttributionControl } from 'mapbox-gl'
 
 const accessToken = import.meta.env.VITE_ACCESS_TOKEN
 const mapStyle = import.meta.env.VITE_MAP_STYLE
+const minZoom = 16
 
 // Create map
 const map = new Map( {
 	container: 'container',
 	accessToken,
-	style: 'mapbox://styles/mapbox/streets-v12',
-	zoom: 15.36,
-	center: [ 69.248266, 41.316696 ],
+	style: mapStyle,
+	zoom: 16,
+	center: [ 69.248387, 41.316971 ],
+	minZoom: minZoom,
 	bearing: -174.65,
-	pitch: 53.08,
+	pitch: 74.08,
 	attributionControl: false,
 	antialias: true,
 } )
@@ -26,3 +28,20 @@ const map = new Map( {
 	} )
 	map.addControl( control )
 }
+
+map.on( 'load', e => {
+
+	// Basic buldings
+	map.addLayer( {
+		'id': '3d-buildings',
+		'source': 'composite',
+		'source-layer': 'building',
+		'filter': [ '==', 'extrude', 'true' ],
+		'type': 'fill-extrusion',
+		'minzoom': 16,
+		'paint': {
+			'fill-extrusion-color': '#CDFCF6',
+			'fill-extrusion-height': [ 'get', 'height' ],
+		},
+	} )
+} )
