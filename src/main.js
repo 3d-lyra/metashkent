@@ -3,6 +3,9 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import { Map, AttributionControl } from 'mapbox-gl'
 import MapboxDraw from '@mapbox/mapbox-gl-draw'
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader'
+import { MercatorCoordinate } from 'mapbox-gl'
 
 const accessToken = import.meta.env.VITE_ACCESS_TOKEN
 const mapStyle = import.meta.env.VITE_MAP_STYLE
@@ -14,11 +17,11 @@ const map = new Map( {
 	container: 'container',
 	accessToken,
 	style: mapStyle,
-	zoom: 16,
-	center: [ 69.248387, 41.316971 ],
+	zoom: 22,
+	center: [ 69.243469, 41.318780 ],
 	minZoom: minZoom,
-	bearing: -174.65,
-	pitch: 74.08,
+	bearing: 122,
+	pitch: 57,
 	attributionControl: false,
 	antialias: true,
 } )
@@ -30,6 +33,72 @@ const map = new Map( {
 		customAttribution: '<a href="https://github.com/lephn">© Metashkent</>'
 	} )
 	map.addControl( control )
+}
+
+
+// Load THREE.JS Scene & .glb model
+const modelAsMercatorCoordinate = MercatorCoordinate.fromLngLat( [ 69.243463, 41.318787 ], 0 )
+
+const modelTransform = {
+	translateX: modelAsMercatorCoordinate.x,
+	translateY: modelAsMercatorCoordinate.y,
+	translateZ: modelAsMercatorCoordinate.z,
+	rotateX: Math.PI / 2,
+	rotateY: - Math.PI / 1.9,
+	rotateZ: 0,
+	scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits()
+}
+
+const threeLayer = {
+	id: '3d-model',
+	type: 'custom',
+	renderingMode: '3d',
+	onAdd( map, gl ) {
+		this.camera = new THREE.Camera()
+		this.scene = new THREE.Scene()
+
+		{
+			const light = new THREE.HemisphereLight( 0xffffff, 0xeeeeff, 1 )
+			this.scene.add( light )
+		}
+
+		const loader = new GLTFLoader()
+
+		// Model by https://sketchfab.com/LePointBAT
+		loader.load( 'models/stylized_f40.glb', gltf => {
+			gltf.scene.scale.set( 0.25, 0.25, 0.25 )
+			this.scene.add( gltf.scene )
+		} )
+
+		this.map = map
+
+		this.renderer = new THREE.WebGLRenderer( {
+			canvas: map.getCanvas(),
+			context: gl,
+			alpha: true,
+			antialias: true,
+		} )
+ 
+		this.renderer.autoClear = false
+	},
+	render( gl, matrix ) {
+
+		const rotationX = new THREE.Matrix4().makeRotationAxis( new THREE.Vector3( 1, 0, 0 ), modelTransform.rotateX )
+		const rotationY = new THREE.Matrix4().makeRotationAxis( new THREE.Vector3( 0, 1, 0 ), modelTransform.rotateY )
+		const rotationZ = new THREE.Matrix4().makeRotationAxis( new THREE.Vector3( 0, 0, 1 ), modelTransform.rotateZ )
+
+		const m = new THREE.Matrix4().fromArray( matrix )
+		const l = new THREE.Matrix4().makeTranslation( modelTransform.translateX, modelTransform.translateY, modelTransform.translateZ )
+		.scale( new THREE.Vector3( modelTransform.scale, -modelTransform.scale, modelTransform.scale ) )
+		.multiply( rotationX )
+		.multiply( rotationY )
+		.multiply( rotationZ )
+ 
+		this.camera.projectionMatrix = m.multiply(l)
+		this.renderer.resetState()
+		this.renderer.render(this.scene, this.camera)
+		this.map.triggerRepaint()
+	}
 }
 
 map.on( 'load', e => {
@@ -47,6 +116,8 @@ map.on( 'load', e => {
 			'fill-extrusion-height': [ 'get', 'height' ],
 		},
 	} )
+
+	map.addLayer( threeLayer )
 } )
 
 // Draw route
@@ -123,10 +194,13 @@ async function getMatch( coordinates, radius, ) {
 	try {
 
 		const response = await fetch( `https://api.mapbox.com/matching/v5/mapbox/driving/${ coordinates }?geometries=geojson&radiuses=${ radiuses }&steps=true&access_token=${ accessToken }` )
-	
+
 		const json = await response.json()
 
 		if ( response.status === 200 ) {
+
+			console.info( 'Distance:', json.matchings[ 0 ].legs[ 0 ].distance )
+			console.info( 'Steps:', json.matchings[ 0 ].legs[ 0 ].steps )
 
 			return json.matchings[ 0 ].geometry
 		}
