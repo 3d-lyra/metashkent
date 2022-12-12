@@ -3,7 +3,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import { Map, AttributionControl } from 'mapbox-gl'
 import MapboxDraw from '@mapbox/mapbox-gl-draw'
-import * as THREE from 'three'
+import { Camera, Scene, HemisphereLight, WebGLRenderer, Matrix4, Vector3 } from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader'
 import { MercatorCoordinate } from 'mapbox-gl'
 
@@ -54,11 +54,11 @@ const threeLayer = {
 	type: 'custom',
 	renderingMode: '3d',
 	onAdd( map, gl ) {
-		this.camera = new THREE.Camera()
-		this.scene = new THREE.Scene()
+		this.camera = new Camera()
+		this.scene = new Scene()
 
 		{
-			const light = new THREE.HemisphereLight( 0xffffff, 0xeeeeff, 1 )
+			const light = new HemisphereLight( 0xffffff, 0xeeeeff, 1 )
 			this.scene.add( light )
 		}
 
@@ -72,7 +72,7 @@ const threeLayer = {
 
 		this.map = map
 
-		this.renderer = new THREE.WebGLRenderer( {
+		this.renderer = new WebGLRenderer( {
 			canvas: map.getCanvas(),
 			context: gl,
 			alpha: true,
@@ -83,13 +83,13 @@ const threeLayer = {
 	},
 	render( gl, matrix ) {
 
-		const rotationX = new THREE.Matrix4().makeRotationAxis( new THREE.Vector3( 1, 0, 0 ), modelTransform.rotateX )
-		const rotationY = new THREE.Matrix4().makeRotationAxis( new THREE.Vector3( 0, 1, 0 ), modelTransform.rotateY )
-		const rotationZ = new THREE.Matrix4().makeRotationAxis( new THREE.Vector3( 0, 0, 1 ), modelTransform.rotateZ )
+		const rotationX = new Matrix4().makeRotationAxis( new Vector3( 1, 0, 0 ), modelTransform.rotateX )
+		const rotationY = new Matrix4().makeRotationAxis( new Vector3( 0, 1, 0 ), modelTransform.rotateY )
+		const rotationZ = new Matrix4().makeRotationAxis( new Vector3( 0, 0, 1 ), modelTransform.rotateZ )
 
-		const m = new THREE.Matrix4().fromArray( matrix )
-		const l = new THREE.Matrix4().makeTranslation( modelTransform.translateX, modelTransform.translateY, modelTransform.translateZ )
-		.scale( new THREE.Vector3( modelTransform.scale, -modelTransform.scale, modelTransform.scale ) )
+		const m = new Matrix4().fromArray( matrix )
+		const l = new Matrix4().makeTranslation( modelTransform.translateX, modelTransform.translateY, modelTransform.translateZ )
+		.scale( new Vector3( modelTransform.scale, -modelTransform.scale, modelTransform.scale ) )
 		.multiply( rotationX )
 		.multiply( rotationY )
 		.multiply( rotationZ )
