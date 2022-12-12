@@ -1,6 +1,8 @@
 import './main.css'
 import 'mapbox-gl/dist/mapbox-gl.css'
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import { Map, AttributionControl } from 'mapbox-gl'
+import MapboxDraw from '@mapbox/mapbox-gl-draw'
 
 const accessToken = import.meta.env.VITE_ACCESS_TOKEN
 const mapStyle = import.meta.env.VITE_MAP_STYLE
@@ -45,3 +47,69 @@ map.on( 'load', e => {
 		},
 	} )
 } )
+
+// Draw route
+const draw = new MapboxDraw( {
+	displayControlsDefault: false,
+	controls: {
+		line_string: true,
+		trash: true,
+	},
+	styles: [
+		{
+			id: 'gl-draw-line',
+			type: 'line',
+			filter: [
+				'all',
+				[ '==', '$type', 'LineString' ],
+				[ '!=', 'mode', 'static' ],
+			],
+			layout: {
+				'line-cap': 'round',
+				'line-join': 'round',
+			},
+			paint: {
+				'line-color': '#000000',
+				'line-width': 10,
+				'line-opacity': 0.5,
+			}
+		},
+		{
+			id: 'gl-draw-polygon-and-line-vertex-halo-active',
+			type: 'circle',
+			filter: [
+				'all',
+				[ '==', 'meta', 'vertex' ],
+				[ '==', '$type', 'Point' ],
+				[ '!=', 'mode', 'static' ]
+			],
+			paint: {
+				'circle-radius': 10,
+				'circle-color': '#000000',
+			}
+		},
+		{
+			id: 'gl-draw-polygon-and-line-vertex-active',
+			type: 'circle',
+			filter: [
+				'all',
+				[ '==', 'meta', 'vertex' ],
+				[ '==', '$type', 'Point' ],
+				[ '!=', 'mode', 'static' ],
+			],
+			paint: {
+				'circle-radius': 6,
+				'circle-color': '#ffffff',
+			}
+		}
+	],
+} )
+
+map.addControl( draw )
+map.on( 'draw.create', updateRoute )
+map.on( 'draw.update', updateRoute )
+
+function updateRoute( e ) {
+
+	console.log( e.features[ 0 ].geometry.coordinates )
+}
