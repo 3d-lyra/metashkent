@@ -7,6 +7,7 @@ import MapboxDraw from '@mapbox/mapbox-gl-draw'
 const accessToken = import.meta.env.VITE_ACCESS_TOKEN
 const mapStyle = import.meta.env.VITE_MAP_STYLE
 const minZoom = 16
+const routeRadius = 25
 
 // Create map
 const map = new Map( {
@@ -69,9 +70,10 @@ const draw = new MapboxDraw( {
 				'line-join': 'round',
 			},
 			paint: {
-				'line-color': '#000000',
-				'line-width': 10,
-				'line-opacity': 0.5,
+				'line-color': '#0000ff',
+				'line-width': 4,
+				'line-opacity': 0.6,
+				'line-dasharray': [ 0.1, 2 ],
 			}
 		},
 		{
@@ -84,24 +86,11 @@ const draw = new MapboxDraw( {
 				[ '!=', 'mode', 'static' ]
 			],
 			paint: {
-				'circle-radius': 10,
-				'circle-color': '#000000',
+				'circle-radius': 6,
+				'circle-color': '#0000ff',
+				'circle-opacity': 0.5,
 			}
 		},
-		{
-			id: 'gl-draw-polygon-and-line-vertex-active',
-			type: 'circle',
-			filter: [
-				'all',
-				[ '==', 'meta', 'vertex' ],
-				[ '==', '$type', 'Point' ],
-				[ '!=', 'mode', 'static' ],
-			],
-			paint: {
-				'circle-radius': 6,
-				'circle-color': '#ffffff',
-			}
-		}
 	],
 } )
 
@@ -109,7 +98,71 @@ map.addControl( draw )
 map.on( 'draw.create', updateRoute )
 map.on( 'draw.update', updateRoute )
 
-function updateRoute( e ) {
+async function updateRoute( e ) {
 
-	console.log( e.features[ 0 ].geometry.coordinates )
+	const data = draw.getAll()
+
+	const lastFeature = data.features.length - 1
+
+	const coords = data.features[ lastFeature ].geometry.coordinates
+
+	const newCoords = coords.join( ';' )
+
+	const radius = coords.map( () => routeRadius )
+
+	const route = await getMatch( newCoords, radius )
+
+	addRoute( route )
+}
+
+// https://docs.mapbox.com/api/navigation/map-matching/
+async function getMatch( coordinates, radius, ) {
+
+	const radiuses = radius.join( ';' )
+
+	try {
+
+		const response = await fetch( `https://api.mapbox.com/matching/v5/mapbox/driving/${ coordinates }?geometries=geojson&radiuses=${ radiuses }&steps=true&access_token=${ accessToken }` )
+	
+		const json = await response.json()
+
+		if ( response.status === 200 ) {
+
+			return json.matchings[ 0 ].geometry
+		}
+	}
+	catch( e ) {
+		console.log( e )
+	}
+}
+
+function addRoute( geometry ) {
+
+	if ( map.getSource( 'route' ) ) {
+		map.removeLayer( 'route' )
+		map.removeSource( 'route' )
+	}
+	else {
+		map.addLayer( {
+			id: 'route',
+			type: 'line',
+			source: {
+				type: 'geojson',
+				data: {
+					type: 'Feature',
+					properties: {},
+					geometry: geometry,
+				}
+			},
+			layout: {
+				'line-join': 'round',
+				'line-cap': 'round'
+			},
+			paint: {
+				'line-color': '#000000',
+				'line-width': 5,
+				'line-opacity': 0.5,
+			},
+		} )
+	}
 }
